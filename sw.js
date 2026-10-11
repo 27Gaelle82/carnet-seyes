@@ -1,6 +1,6 @@
 // Carnet Seyès : fonctionnement hors connexion.
 // Changer VERSION à chaque mise à jour des fichiers de l'application.
-const VERSION = 'carnet-seyes-v3';
+const VERSION = 'carnet-seyes-v4';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
@@ -28,8 +28,9 @@ self.addEventListener('fetch', e => {
   // Page : réseau d'abord (pour recevoir les mises à jour), sinon la copie gardée.
   if (req.mode === 'navigate' && url.origin === location.origin) {
     e.respondWith(
-      fetch(req)
-        .then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return res; })
+      // no-store : on contourne le cache du navigateur pour toujours recevoir la dernière version
+      fetch(req.url, { cache: 'no-store', credentials: 'same-origin' })
+        .then(res => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); } return res; })
         .catch(() => caches.match('./index.html'))
     );
     return;
