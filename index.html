@@ -435,6 +435,7 @@ kbd { font: 12px var(--f-mono); background: var(--panel); border: 1px solid var(
   .hide-sm { display: none !important; }
   .scroller { padding-inline: 8px; }
 }
+
 /* Application installée : la barre du haut et la couverture passent sous la barre d'état du téléphone */
 html.own-page .top { padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 html.own-page .side { padding-top: env(safe-area-inset-top, 0px); }
@@ -612,6 +613,69 @@ body {
   .eyebrow .eb-nb { display: none; }
   .page-head { padding-right: 64px; }
 }
+
+/* ---------- PDF affiché comme un lien ---------- */
+.pdf-link { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.pdf-link:hover { border-color: var(--gold-deep); box-shadow: 0 6px 18px -10px var(--shadow); }
+.pdf-link:hover .pdf-txt b { text-decoration: underline; text-underline-offset: 3px; }
+.pdf-badge { position: relative; flex: none; width: 36px; height: 44px; border-radius: 3px 10px 3px 3px; background: #fff; border: 1.5px solid #c9353b; display: grid; align-items: end; justify-items: center; padding-bottom: 5px; }
+.pdf-badge::before { content: ""; position: absolute; top: -1.5px; right: -1.5px; width: 11px; height: 11px; background: linear-gradient(225deg, var(--paper) 50%, #c9353b 50%); border-radius: 0 9px 0 2px; }
+.pdf-badge span { font: 800 9px/1 var(--f-ui); letter-spacing: .04em; color: #fff; background: #c9353b; border-radius: 3px; padding: 2px 4px; }
+.pdf-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pdf-txt b { color: var(--accent); font-weight: 600; font-size: 15px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.pdf-meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pdf-go { flex: none; color: var(--muted); display: grid; }
+.pdf-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sheet.drawing .pdf-link { cursor: inherit; }
+.card { flex-wrap: wrap; }
+.card .txt { flex: 1 1 160px; }
+.card-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- Téléphone ---------- */
+button, a, [role="button"] { touch-action: manipulation; }
+body { overscroll-behavior: none; }
+@media (max-width: 600px) {
+  .top { flex-wrap: nowrap; gap: 2px; padding-left: 6px !important; padding-right: 6px !important; }
+  .tgroup { border-left: 0; padding: 0; gap: 0; }
+  .crumb { flex: 1 1 auto; padding: 0 4px; gap: 4px; }
+  .crumb > span { display: none; }
+  .crumb b { font-size: 16px; }
+  .status, #b-theme, #b-toc { display: none !important; }
+  .top .icon-btn { width: 36px; height: 36px; }
+  .mode-switch button { padding: 6px 9px; }
+  #b-insert { padding: 6px 10px; }
+  .scroller { padding-inline: 6px; padding-block: 22px 120px; }
+  .sheet { --pl: 30px; padding: 46px 14px 64px 0; border-radius: 3px 10px 10px 3px; }
+  .ribbon { right: 22px; height: 78px; width: 20px; }
+  .page-head { padding-right: 52px; }
+  .page-title { font-size: 34px; }
+  .gutter { padding: 3px 4px 0 0; }
+  .gutter .icon-btn:first-child { display: none; }
+  .blk { padding-right: 0; }
+  .blk-note { margin-left: 4px; }
+  .rt, .checklist .ci { font-size: 16.5px; }
+  .add-row, .paper-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .add-row::-webkit-scrollbar, .paper-pick::-webkit-scrollbar { display: none; }
+  .add-row .mini, .paper-pick button { flex: none; }
+  .page-foot { font-size: 11px; }
+  /* palette de dessin et barre de mise en forme : une seule ligne qui défile */
+  .dock { left: 6px; right: 6px; transform: none; width: auto; max-width: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; padding: 6px; border-radius: 14px; }
+  .dock::-webkit-scrollbar, .fmt::-webkit-scrollbar { display: none; }
+  .dock > * { flex: none; }
+  .dock .icon-btn { width: 36px; height: 36px; }
+  .dock .swatch { width: 28px; height: 28px; }
+  .fmt { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; left: 6px !important; right: 6px; max-width: none; }
+  .fmt > * { flex: none; }
+  .fmt button { min-width: 34px; height: 34px; }
+  /* évite le zoom automatique d'iPhone sur les champs */
+  input, select, textarea, .search input, .tag-input, .code-h input { font-size: 16px !important; }
+  .tag-input { width: 140px; }
+  .sticky { max-width: 70vw; }
+  .pdf-link { padding: 9px 10px; gap: 10px; }
+  .menu { max-width: calc(100vw - 16px); }
+  .modal { padding: 16px; }
+}
+
 </style>
 </head>
 <body>
@@ -1406,16 +1470,13 @@ const RENDER = {
   },
   file(b) {
     if (!b.blob) return dropZone(b, '*/*', 'file', 'Choisir un fichier');
-    const isPdf = b.mime === 'application/pdf' || /\.pdf$/i.test(b.name || '');
+    if (isPdfBlock(b)) return pdfLink(b);
     // Dans le cadre protégé, un lien blob: vers un nouvel onglet ne s'ouvre pas : on n'affiche « Ouvrir » qu'en dehors.
     let open = null;
-    if (!SANDBOXED && !isPdf) { open = h('a', { class: 'btn', target: '_blank', rel: 'noopener', html: icon('open') + 'Ouvrir' }); blobUrl(b.blob).then(u => { if (u) open.href = u; }); }
-    const card = h('div', { class: 'card' }, h('div', { class: 'ico', html: icon(isPdf ? 'note' : 'file') }),
-      h('div', { class: 'txt' }, h('b', { text: b.name || 'Fichier' }), h('span', { text: (isPdf ? 'PDF' : (b.mime || 'fichier')) + ' · ' + fmtSize(b.size || 0) })),
-      isPdf ? h('button', { class: 'btn primary', html: icon('open') + 'Lire en grand', title: 'Ouvrir en plein écran, avec zoom', onclick: () => openPdfReader(b, 1) }) : null,
-      open, h('button', { class: 'btn', html: icon('download') + '<span class="hide-sm">Enregistrer</span>', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'fichier', blob); } }));
-    if (!isPdf) return card;
-    return h('div', { class: 'pdf' }, card, pdfViewer(b));
+    if (!SANDBOXED) { open = h('a', { class: 'btn', target: '_blank', rel: 'noopener', html: icon('open') + 'Ouvrir' }); blobUrl(b.blob).then(u => { if (u) open.href = u; }); }
+    return h('div', { class: 'card' }, h('div', { class: 'ico', html: icon('file') }),
+      h('div', { class: 'txt' }, h('b', { text: b.name || 'Fichier' }), h('span', { text: (b.mime || 'fichier') + ' · ' + fmtSize(b.size || 0) })),
+      h('div', { class: 'card-acts' }, open, h('button', { class: 'btn', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'fichier', blob); } })));
   },
   link(b) {
     if (!b.url) {
@@ -1650,6 +1711,29 @@ function lightbox(src) {
   new ResizeObserver(layout).observe(R.body);
 }
 
+const isPdfBlock = b => b.mime === 'application/pdf' || /\.pdf$/i.test(b.name || '');
+// Un PDF s'affiche comme un lien : un toucher l'ouvre en plein écran. Les pages peuvent aussi être posées dans la feuille.
+function pdfLink(b) {
+  const meta = h('span', { class: 'pdf-meta', text: 'PDF · ' + fmtSize(b.size || 0) });
+  const link = h('button', { class: 'pdf-link', type: 'button', title: 'Ouvrir le PDF en plein écran', onclick: () => { if (S.mode === 'write') openPdfReader(b, 1); } },
+    h('span', { class: 'pdf-badge', 'aria-hidden': 'true' }, h('span', { text: 'PDF' })),
+    h('span', { class: 'pdf-txt' }, h('b', { text: b.name || 'Document PDF' }), meta),
+    h('span', { class: 'pdf-go', html: icon('chev') }));
+  loadPdf(b).then(d => { meta.textContent = `PDF · ${d.numPages} page${d.numPages > 1 ? 's' : ''} · ${fmtSize(b.size || 0)}`; }).catch(() => {});
+  const acts = h('div', { class: 'pdf-acts' },
+    h('button', { class: 'mini' + (b.pdfInline ? ' on' : ''), html: icon(b.pdfInline ? 'min' : 'note') + (b.pdfInline ? 'Masquer les pages' : 'Afficher les pages ici'), title: 'Poser les pages dans la feuille, pour dessiner dessus', onclick: () => { b.pdfInline = !b.pdfInline; changed(b); rerender(b); } }),
+    h('button', { class: 'mini', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }));
+  const wrap = h('div', { class: 'pdf' }, link, acts);
+  if (b.pdfInline) wrap.append(pdfViewer(b));
+  return wrap;
+}
+// Reconnaît un PDF même quand le téléphone ne donne ni type ni extension.
+async function fileMime(f) {
+  if (f.type && f.type !== 'application/octet-stream') return f.type;
+  try { if ((await f.slice(0, 5).text()) === '%PDF-') return 'application/pdf'; } catch (e) {}
+  return f.type || '';
+}
+
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } }
 function normUrl(v) { v = (v || '').trim(); if (!v) return ''; if (!/^https?:\/\//i.test(v)) v = 'https://' + v; try { new URL(v); return v; } catch (e) { return ''; } }
 function videoEmbed(u) {
@@ -1681,7 +1765,7 @@ function dropZone(b, accept, kind, label) {
 async function fillMedia(b, f) {
   const kind = kindOf(f);
   if (b.type !== 'file' && kind !== b.type) b.type = kind;
-  b.blob = await putBlob(f); b.name = f.name; b.size = f.size; b.mime = f.type;
+  b.blob = await putBlob(f); b.name = f.name; b.size = f.size; b.mime = await fileMime(f);
   changed(b); rerender(b);
 }
 const kindOf = f => /^image\//.test(f.type) ? 'image' : /^video\//.test(f.type) ? 'video' : /^audio\//.test(f.type) ? 'audio' : 'file';
@@ -1923,7 +2007,7 @@ async function insertFiles(files, index) {
   for (const f of files) {
     const kind = kindOf(f);
     const b = insertBlock(kind, i++, {}, false);
-    b.blob = await putBlob(f); b.name = f.name; b.size = f.size; b.mime = f.type;
+    b.blob = await putBlob(f); b.name = f.name; b.size = f.size; b.mime = await fileMime(f);
     changed(b); rerender(b);
   }
   if (files.length) toast(files.length > 1 ? `${files.length} fichiers ajoutés` : 'Fichier ajouté');
@@ -2445,6 +2529,7 @@ async function exportPagePng() {
 function moreMenu(anchor) {
   const p = page();
   openMenu(anchor, [
+    { label: 'Thème : ' + ({ light: 'clair', dark: 'sombre' }[prefs.get('theme', 'system')] || 'automatique'), icon: 'sun', run: () => $('#b-theme').click() },
     { label: p.pinned ? 'Désépingler la page' : 'Épingler la page', icon: 'pin', run: () => { p.pinned = !p.pinned; touch(p, { side: true }); } },
     { label: 'Dupliquer la page', icon: 'copy', run: () => { const c = JSON.parse(JSON.stringify(p)); c.id = 'p_' + uid(); c.title = (p.title || 'Sans titre') + ' (copie)'; c.created = c.updated = Date.now(); c.pinned = false; c.blocks.forEach(b => b.id = uid()); S.pages.set(c.id, c); touch(c); openPage(c.id); toast('Page dupliquée'); } },
     { label: 'Déplacer vers un autre carnet', icon: 'book', run: () => openMenu(anchor, [{ head: 'Déplacer vers' }, ...S.notebooks.filter(n => n.id !== p.nbId).map(n => ({ label: n.name, icon: 'book', run: () => { p.nbId = n.id; touch(p, { side: true }); renderCrumb(); toast('Page déplacée'); } }))]) },
