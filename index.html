@@ -121,6 +121,7 @@ svg.i .f { fill: currentColor; stroke: none; }
 .nb-name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 0; background: none; text-align: left; padding: 2px 0; }
 .nb-row .acts { display: flex; opacity: 0; transition: opacity .1s; }
 .nb-row:hover .acts, .nb-row:focus-within .acts { opacity: 1; }
+@media (hover: none) { .nb-row .acts { opacity: 1; } }
 .nb-pages { padding-left: 18px; display: none; }
 .nb.open .nb-pages { display: block; }
 .pg { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 5px 8px; border-radius: 7px; text-align: left; color: var(--ink); }
@@ -382,7 +383,7 @@ button.tag:hover, .tag.on { border-color: var(--accent); }
 .fmt .dot { width: 16px; height: 16px; border-radius: 50%; display: block; border: 1px solid rgba(127,127,127,.5); }
 .fmt input { background: var(--paper); color: var(--ink); border: 0; border-radius: 6px; padding: 4px 8px; width: 220px; outline: none; }
 
-.menu { position: fixed; z-index: 70; min-width: 220px; max-width: min(320px, calc(100vw - 24px)); max-height: min(70vh, 520px); overflow-y: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px var(--shadow); padding: 6px; }
+.menu { position: fixed; z-index: 88; min-width: 220px; max-width: min(320px, calc(100vw - 24px)); max-height: min(70vh, 520px); overflow-y: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px var(--shadow); padding: 6px; }
 .menu .mh { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 8px 8px 4px; font-weight: 600; }
 .menu button.mi { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 7px 8px; border-radius: 8px; text-align: left; }
 .menu button.mi:hover, .menu button.mi.sel { background: var(--accent-soft); }
@@ -1934,7 +1935,7 @@ function openMenu(anchor, items, onClose, opts = {}) {
     if (it.custom) { menuEl.append(it.custom()); continue; }
     const btn = h('button', { class: 'mi' + (it.danger ? ' danger' : ''), role: 'menuitem', 'data-k': norm(it.label + ' ' + (it.keys || '')) });
     if (it.big) btn.append(h('span', { class: 'mi-ico', html: icon(it.icon) }), h('span', { class: 'mi-txt' }, h('b', { text: it.label, style: { fontWeight: 500 } }), it.sub ? h('span', { text: it.sub }) : null));
-    else btn.append(h('span', { html: icon(it.icon || 'chev') }), h('span', { text: it.label }), it.kbd ? h('small', { text: it.kbd }) : null);
+    else btn.append(...[h('span', { html: icon(it.icon || 'chev') }), h('span', { text: it.label }), it.kbd ? h('small', { text: it.kbd }) : null].filter(Boolean));
     btn.addEventListener('click', () => { closeMenu(); it.run && it.run(); });
     menuEl.append(btn);
   }
