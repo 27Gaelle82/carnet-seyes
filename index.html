@@ -410,6 +410,9 @@ kbd { font: 12px var(--f-mono); background: var(--panel); border: 1px solid var(
 .rd-title { font-weight: 600; max-width: 40vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rd-info { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .rd-sp { flex: 1; }
+.rd-msg { margin: auto; max-width: 420px; text-align: center; color: #cfd6df; display: grid; gap: 14px; justify-items: center; }
+.rd-msg p { margin: 0; line-height: 1.5; }
+.rd-msg .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 @media (max-width: 520px) { .rd-title { display: none; } .rd-bar { flex-wrap: nowrap; gap: 2px; padding-inline: 8px; } .rd-bar .btn { padding: 6px 9px; } }
 .rd-pct { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; font-size: 13px; }
 .reader .icon-btn { color: var(--ink); }
@@ -1498,112 +1501,153 @@ const RENDER = {
 
 /* ---------- Lecteur PDF (PDF.js, chargé à la demande) ---------- */
 // Dans l'application installée, le lecteur PDF est fourni avec elle (marche hors connexion) ; ailleurs, il vient du CDN.
-const PDFJS = (!SANDBOXED && /^https?:$/.test(location.protocol)) ? new URL('vendor/pdfjs/', location.href).href : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const PDFJS_LOCAL = !SANDBOXED && /^https?:$/.test(location.protocol);
+const PDFJS = PDFJS_LOCAL ? new URL('vendor/pdfjs/', location.href).href : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const withTimeout = (p, ms, code) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error(code), { code })), ms))]);
 let pdfjsPromise = null;
 function loadPdfJs() {
   if (pdfjsPromise) return pdfjsPromise;
   pdfjsPromise = new Promise((res, rej) => {
     const sc = document.createElement('script');
     sc.src = PDFJS + 'pdf.min.js';
-    sc.onload = () => {
-      const lib = window.pdfjsLib; if (!lib) return rej(new Error('pdfjs'));
-      const fallback = () => { lib.GlobalWorkerOptions.workerPort = null; lib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; res(lib); };
+    sc.onload = async () => {
+      const lib = window.pdfjsLib;
+      if (!lib) return rej(Object.assign(new Error('reader'), { code: 'reader' }));
+      lib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+      // Même origine : PDF.js crée son worker lui-même.
+      if (PDFJS_LOCAL) return res(lib);
+      // Depuis le CDN, le worker passe par un blob. On ne l'utilise que lorsqu'il annonce qu'il est prêt ;
+      // sinon PDF.js travaille sans worker (plus lent, mais il s'ouvre).
       try {
-        // le worker est créé depuis un blob qui importe le script du CDN autorisé ; s'il échoue, PDF.js travaille sans worker
         const src = URL.createObjectURL(new Blob([`importScripts('${PDFJS}pdf.worker.min.js');`], { type: 'text/javascript' }));
         const w = new Worker(src);
-        let done = false;
-        w.addEventListener('error', () => { if (done) return; done = true; w.terminate(); fallback(); }, { once: true });
-        setTimeout(() => { if (done) return; done = true; lib.GlobalWorkerOptions.workerPort = w; res(lib); }, 1500);
-      } catch (e) { fallback(); }
+        const ok = await new Promise(r => {
+          const t = setTimeout(() => r(false), 20000);
+          w.addEventListener('message', e => { if (e.data && e.data.action === 'ready') { clearTimeout(t); r(true); } });
+          w.addEventListener('error', () => { clearTimeout(t); r(false); });
+        });
+        if (ok) lib.GlobalWorkerOptions.workerPort = w; else w.terminate();
+      } catch (e) {}
+      res(lib);
     };
-    sc.onerror = () => { pdfjsPromise = null; rej(new Error('pdfjs')); };
+    sc.onerror = () => rej(Object.assign(new Error('reader'), { code: 'reader' }));
     document.head.append(sc);
   });
+  pdfjsPromise.catch(() => { pdfjsPromise = null; });
   return pdfjsPromise;
 }
-// Rendu net : on dessine au moins à 2× la taille affichée (plus sur écran Retina),
-// en restant sous la limite de pixels qu'acceptent les navigateurs mobiles.
-const MAX_CANVAS_PX = 16e6, MAX_CANVAS_SIDE = 8192;
+// Rendu net, mais sous la mémoire qu'accepte un téléphone : au-delà, iPhone laisse les pages blanches.
+const SMALL_DEVICE = matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+const MAX_CANVAS_PX = SMALL_DEVICE ? 5e6 : 16e6, MAX_CANVAS_SIDE = SMALL_DEVICE ? 4096 : 8192;
 function renderScale(v1, cssWidth) {
   const dpr = window.devicePixelRatio || 1;
   let k = (cssWidth * Math.max(2, Math.min(dpr * 1.5, 4))) / v1.width;
   const area = v1.width * v1.height * k * k;
   if (area > MAX_CANVAS_PX) k *= Math.sqrt(MAX_CANVAS_PX / area);
-  k = Math.min(k, MAX_CANVAS_SIDE / v1.width, MAX_CANVAS_SIDE / v1.height);
-  return k;
+  return Math.min(k, MAX_CANVAS_SIDE / v1.width, MAX_CANVAS_SIDE / v1.height);
 }
-async function drawPdfPage(pg, cv, cssWidth, prev) {
+async function drawPdfPage(pg, cv, cssWidth) {
   const v1 = pg.getViewport({ scale: 1 });
   const vp = pg.getViewport({ scale: renderScale(v1, cssWidth) });
-  try { prev?.cancel(); } catch (e) {}
+  try { cv._task?.cancel(); } catch (e) {}
   // on dessine hors écran puis on remplace d'un coup : pas de clignotement pendant le zoom
   const off = document.createElement('canvas');
   off.width = Math.floor(vp.width); off.height = Math.floor(vp.height);
   const task = pg.render({ canvasContext: off.getContext('2d', { alpha: false }), viewport: vp, intent: 'display' });
   cv._task = task;
-  await task.promise;
-  cv.width = off.width; cv.height = off.height;
-  cv.getContext('2d').drawImage(off, 0, 0);
+  try {
+    await task.promise;
+    cv.width = off.width; cv.height = off.height;
+    cv.getContext('2d').drawImage(off, 0, 0);
+  } finally {
+    off.width = off.height = 0; // rend la mémoire tout de suite
+    if (cv._task === task) cv._task = null;
+  }
 }
+// Libère la mémoire d'une page qui n'est plus à l'écran.
+function releaseCanvas(cv) { try { cv._task?.cancel(); } catch (e) {} cv._task = null; cv.width = cv.height = 0; }
+// Au plus 3 PDF ouverts en mémoire ; les autres sont rouverts à la demande.
 const pdfDocs = new Map();
-async function loadPdf(b) {
-  if (pdfDocs.has(b.blob)) return pdfDocs.get(b.blob);
+function loadPdf(b) {
+  if (pdfDocs.has(b.blob)) { const pr = pdfDocs.get(b.blob); pdfDocs.delete(b.blob); pdfDocs.set(b.blob, pr); return pr; }
   const pr = (async () => {
-    const [lib, blob] = await Promise.all([loadPdfJs(), DB.get('blobs', b.blob)]);
-    if (!blob) throw new Error('missing');
-    return lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise;
+    const [lib, blob] = await Promise.all([withTimeout(loadPdfJs(), 30000, 'reader'), DB.get('blobs', b.blob)]);
+    if (!blob) throw Object.assign(new Error('missing'), { code: 'missing' });
+    const task = lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false });
+    try { return await withTimeout(task.promise, 60000, 'timeout'); }
+    catch (e) { try { task.destroy(); } catch (_) {} throw e; }
   })();
   pdfDocs.set(b.blob, pr);
-  pr.catch(() => pdfDocs.delete(b.blob));
+  pr.then(d => { if (!b.pages || b.pages !== d.numPages) { b.pages = d.numPages; } }).catch(() => pdfDocs.delete(b.blob));
+  while (pdfDocs.size > 3) {
+    const [k, old] = pdfDocs.entries().next().value;
+    pdfDocs.delete(k);
+    old.then(d => d.destroy()).catch(() => {});
+  }
   return pr;
 }
+function pdfError(e) {
+  const code = e?.code || e?.name || '';
+  if (code === 'missing') return 'Le fichier n\'est plus dans ce navigateur. Collez-le à nouveau.';
+  if (code === 'PasswordException') return 'Ce PDF est protégé par un mot de passe : le carnet ne peut pas l\'afficher. Utilisez « Enregistrer » pour l\'ouvrir sur votre appareil.';
+  if (code === 'InvalidPDFException') return 'Ce fichier PDF est abîmé ou incomplet. Essayez de le télécharger à nouveau puis de le recoller.';
+  if (code === 'reader') return 'Le lecteur PDF n\'a pas pu se charger. Vérifiez la connexion Internet puis touchez « Réessayer ».';
+  if (code === 'timeout') return 'Ce PDF met trop de temps à s\'ouvrir. Touchez « Réessayer ».';
+  return 'Ce PDF n\'a pas pu s\'ouvrir. Touchez « Réessayer », ou « Enregistrer » pour l\'ouvrir sur votre appareil.';
+}
+function pdfRetry(b) { const pr = pdfDocs.get(b.blob); pdfDocs.delete(b.blob); pr?.then(d => d.destroy()).catch(() => {}); }
 function pdfViewer(b) {
   const PREVIEW = 2;
   const wrap = h('div', { class: 'pdf-pages' }, h('div', { class: 'pdf-msg', text: 'Ouverture du PDF…' }));
   (async () => {
-    try {
-      const doc = await loadPdf(b);
+    let n;
+    try { n = (await loadPdf(b)).numPages; }
+    catch (e) {
       wrap.innerHTML = '';
-      const n = doc.numPages;
-      const io = new IntersectionObserver(entries => entries.forEach(en => { if (en.isIntersecting) { io.unobserve(en.target); en.target._render(); } }), { root: $('#scroller'), rootMargin: '600px 0px' });
-      const pageEl = i => {
-        const cv = h('canvas', { class: 'pdf-canvas', 'aria-label': `Page ${i} du PDF` });
-        const box = h('div', { class: 'pdf-page', title: 'Cliquer pour lire en grand' }, cv, h('span', { class: 'pdf-num', text: `${i} / ${n}` }));
-        let drawnAt = 0, rendering = false;
-        box._render = async () => {
-          if (rendering) return; rendering = true;
-          try {
-            const pg = await doc.getPage(i);
-            const w = box.clientWidth || 700;
-            await drawPdfPage(pg, cv, w, cv._task);
-            drawnAt = w; box.classList.add('ready');
-          } catch (e) { /* rendu annulé */ }
-          rendering = false;
-        };
-        // redessine si la page s'élargit nettement (rotation, barre latérale masquée…)
-        let t; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (drawnAt && box.clientWidth > drawnAt * 1.15) box._render(); }, 250); }).observe(box);
-        box.addEventListener('click', () => { if (S.mode === 'write') openPdfReader(b, i); });
-        doc.getPage(i).then(pg => { const v = pg.getViewport({ scale: 1 }); box.style.aspectRatio = `${v.width} / ${v.height}`; });
-        return box;
+      wrap.append(h('div', { class: 'pdf-msg', text: pdfError(e) }), h('button', { class: 'mini', html: icon('restore') + 'Réessayer', onclick: () => { pdfRetry(b); rerender(b); } }));
+      return;
+    }
+    wrap.innerHTML = '';
+    const io = new IntersectionObserver(entries => entries.forEach(en => {
+      if (en.isIntersecting) en.target._render(); else en.target._release();
+    }), { root: $('#scroller'), rootMargin: '700px 0px' });
+    const pageEl = i => {
+      const cv = h('canvas', { class: 'pdf-canvas', 'aria-label': `Page ${i} du PDF` });
+      const box = h('div', { class: 'pdf-page', title: 'Toucher pour lire en grand' }, cv, h('span', { class: 'pdf-num', text: `${i} / ${n}` }));
+      let drawnAt = 0, rendering = false, wanted = false;
+      box._render = async () => {
+        wanted = true;
+        if (rendering || drawnAt) return;
+        rendering = true;
+        try {
+          const pg = await (await loadPdf(b)).getPage(i);
+          const v = pg.getViewport({ scale: 1 }); box.style.aspectRatio = `${v.width} / ${v.height}`;
+          if (!wanted) return;
+          const w = box.clientWidth || 700;
+          await drawPdfPage(pg, cv, w);
+          drawnAt = w; box.classList.add('ready');
+        } catch (e) { drawnAt = 0; }
+        finally { rendering = false; }
       };
-      const show = upto => {
-        for (let i = wrap.querySelectorAll('.pdf-page').length + 1; i <= upto; i++) { const el = pageEl(i); (wrap.querySelector('.pdf-more') ? wrap.querySelector('.pdf-more').before(el) : wrap.append(el)); io.observe(el); }
-      };
-      const expanded = !!b.pdfOpen;
-      show(expanded ? n : Math.min(PREVIEW, n));
-      if (n > PREVIEW) {
-        const more = h('button', { class: 'btn pdf-more', text: expanded ? 'Réduire' : `Afficher les ${n} pages` });
-        more.addEventListener('click', () => {
-          b.pdfOpen = !b.pdfOpen; changed(b);
-          if (b.pdfOpen) { show(n); more.textContent = 'Réduire'; }
-          else { $$('.pdf-page', wrap).slice(PREVIEW).forEach(x => x.remove()); more.textContent = `Afficher les ${n} pages`; wrap.scrollIntoView({ block: 'nearest' }); }
-        });
-        wrap.append(more);
-      }
-    } catch (e) {
-      wrap.innerHTML = '';
-      wrap.append(h('div', { class: 'pdf-msg', text: e.message === 'missing' ? 'Le fichier n\'est plus dans ce navigateur.' : 'Impossible d\'afficher ce PDF ici (fichier protégé, abîmé, ou pas de connexion pour charger le lecteur). Utilisez « Enregistrer » pour l\'ouvrir sur votre appareil.' }));
+      box._release = () => { wanted = false; if (!drawnAt && !rendering) return; releaseCanvas(cv); drawnAt = 0; box.classList.remove('ready'); };
+      // redessine si la page s'élargit nettement (rotation, barre latérale masquée…)
+      let t; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (drawnAt && box.clientWidth > drawnAt * 1.15) { drawnAt = 0; box._render(); } }, 250); }).observe(box);
+      box.addEventListener('click', () => { if (S.mode === 'write') openPdfReader(b, i); });
+      return box;
+    };
+    const show = upto => {
+      for (let i = wrap.querySelectorAll('.pdf-page').length + 1; i <= upto; i++) { const el = pageEl(i); (wrap.querySelector('.pdf-more') ? wrap.querySelector('.pdf-more').before(el) : wrap.append(el)); io.observe(el); }
+    };
+    const expanded = !!b.pdfOpen;
+    show(expanded ? n : Math.min(PREVIEW, n));
+    if (n > PREVIEW) {
+      const more = h('button', { class: 'btn pdf-more', text: expanded ? 'Réduire' : `Afficher les ${n} pages` });
+      more.addEventListener('click', () => {
+        b.pdfOpen = !b.pdfOpen; changed(b);
+        if (b.pdfOpen) { show(n); more.textContent = 'Réduire'; }
+        else { $$('.pdf-page', wrap).slice(PREVIEW).forEach(x => { x._release(); io.unobserve(x); x.remove(); }); more.textContent = `Afficher les ${n} pages`; wrap.scrollIntoView({ block: 'nearest' }); }
+      });
+      wrap.append(more);
     }
   })();
   return wrap;
@@ -1638,35 +1682,55 @@ function wheelZoom(body, get, set) {
 }
 async function openPdfReader(b, startPage = 1) {
   const R = readerShell(b.name || 'PDF');
-  R.body.append(h('div', { class: 'pdf-msg', style: { color: '#cfd6df' }, text: 'Ouverture…' }));
+  let closed = false;
+  const stop = new MutationObserver(() => { if (!R.root.isConnected) { closed = true; stop.disconnect(); } });
+  stop.observe(document.body, { childList: true });
+  const fail = e => {
+    R.body.innerHTML = '';
+    R.body.append(h('div', { class: 'rd-msg' },
+      h('p', { text: pdfError(e) }),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', html: icon('restore') + 'Réessayer', onclick: () => { pdfRetry(b); R.close(); openPdfReader(b, startPage); } }),
+        h('button', { class: 'btn', html: icon('download') + 'Enregistrer', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }))));
+  };
+  R.body.append(h('div', { class: 'rd-msg' }, h('p', { text: 'Ouverture du PDF…' })));
   let doc;
-  try { doc = await loadPdf(b); } catch (e) { R.body.innerHTML = ''; R.body.append(h('div', { class: 'pdf-msg', text: 'Impossible d\'ouvrir ce PDF.' })); return; }
+  try { doc = await loadPdf(b); } catch (e) { if (!closed) fail(e); return; }
+  if (closed) return;
   R.body.innerHTML = '';
   const n = doc.numPages;
-  const sizes = [];
-  for (let i = 1; i <= n; i++) { const pg = await doc.getPage(i); const v = pg.getViewport({ scale: 1 }); sizes.push([v.width, v.height]); }
-  const fitW = () => Math.min(R.body.clientWidth - 32, 1100);
+  // Toutes les pages prennent d'abord le format de la première : l'ouverture est immédiate même pour un gros PDF.
+  let first;
+  try { first = (await doc.getPage(1)).getViewport({ scale: 1 }); } catch (e) { fail(e); return; }
+  const sizes = Array.from({ length: n }, () => [first.width, first.height]);
+  const fitW = () => Math.max(200, Math.min(R.body.clientWidth - 32, 1100));
   let zoom = 1; // 1 = largeur ajustée à l'écran
   const pages = sizes.map((sz, idx) => {
     const cv = h('canvas', { class: 'pdf-canvas' });
     const el = h('div', { class: 'rd-page' }, cv, h('span', { class: 'pdf-num', text: `${idx + 1} / ${n}` }));
-    el._cv = cv; el._i = idx + 1; el._drawn = 0;
+    el._cv = cv; el._i = idx + 1; el._drawn = 0; el._k = idx;
     return el;
   });
   R.body.append(...pages);
-  const layout = () => {
-    const w = fitW() * zoom;
-    pages.forEach((el, k) => { el.style.width = w + 'px'; el.style.height = (w * sizes[k][1] / sizes[k][0]) + 'px'; });
-    R.pct.textContent = Math.round(zoom * 100) + ' %';
-  };
+  const sizeOne = el => { const w = fitW() * zoom; el.style.width = w + 'px'; el.style.height = (w * sizes[el._k][1] / sizes[el._k][0]) + 'px'; };
+  const layout = () => { pages.forEach(sizeOne); R.pct.textContent = Math.round(zoom * 100) + ' %'; };
+  const visible = new Set();
   const render = async el => {
     const w = parseFloat(el.style.width);
-    if (el._drawn === w) return;
+    if (el._drawn === w || closed) return;
     el._drawn = w;
-    try { await drawPdfPage(await doc.getPage(el._i), el._cv, w, el._cv._task); } catch (e) {}
+    try {
+      const pg = await (await loadPdf(b)).getPage(el._i);
+      const v = pg.getViewport({ scale: 1 });
+      if (Math.abs(v.width / v.height - sizes[el._k][0] / sizes[el._k][1]) > .01) { sizes[el._k] = [v.width, v.height]; sizeOne(el); }
+      if (!visible.has(el) || closed) { el._drawn = 0; return; }
+      await drawPdfPage(pg, el._cv, parseFloat(el.style.width));
+    } catch (e) { el._drawn = 0; }
   };
-  const visible = new Set();
-  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { visible.add(en.target); render(en.target); } else visible.delete(en.target); }), { root: R.body, rootMargin: '800px 0px' });
+  const io = new IntersectionObserver(es => es.forEach(en => {
+    if (en.isIntersecting) { visible.add(en.target); render(en.target); }
+    else { visible.delete(en.target); releaseCanvas(en.target._cv); en.target._drawn = 0; }
+  }), { root: R.body, rootMargin: '600px 0px' });
   pages.forEach(p => io.observe(p));
   let zt;
   const setZoom = z => {
@@ -1675,7 +1739,7 @@ async function openPdfReader(b, startPage = 1) {
     zoom = z; layout();
     R.body.scrollTop = cy * R.body.scrollHeight - R.body.clientHeight / 2;
     R.body.scrollLeft = cx * R.body.scrollWidth - R.body.clientWidth / 2;
-    clearTimeout(zt); zt = setTimeout(() => visible.forEach(render), 120);
+    clearTimeout(zt); zt = setTimeout(() => visible.forEach(render), 150);
   };
   R.zoomIn.onclick = () => setZoom(stepZoom(zoom, 1));
   R.zoomOut.onclick = () => setZoom(stepZoom(zoom, -1));
@@ -1690,7 +1754,7 @@ async function openPdfReader(b, startPage = 1) {
   layout();
   pages[startPage - 1]?.scrollIntoView({ block: 'start' });
   track();
-  new ResizeObserver(() => { layout(); visible.forEach(render); }).observe(R.body);
+  let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { layout(); visible.forEach(render); }, 150); }).observe(R.body);
 }
 function lightbox(src) {
   const R = readerShell('Image');
@@ -1713,7 +1777,7 @@ function lightbox(src) {
   new ResizeObserver(layout).observe(R.body);
 }
 
-const isPdfBlock = b => b.mime === 'application/pdf' || /\.pdf$/i.test(b.name || '');
+const isPdfBlock = b => /pdf/i.test(b.mime || '') || /\.pdf$/i.test(b.name || '');
 // Un PDF s'affiche comme un lien : un toucher l'ouvre en plein écran. Les pages peuvent aussi être posées dans la feuille.
 function pdfLink(b) {
   const meta = h('span', { class: 'pdf-meta', text: 'PDF · ' + fmtSize(b.size || 0) });
@@ -1721,7 +1785,9 @@ function pdfLink(b) {
     h('span', { class: 'pdf-badge', 'aria-hidden': 'true' }, h('span', { text: 'PDF' })),
     h('span', { class: 'pdf-txt' }, h('b', { text: b.name || 'Document PDF' }), meta),
     h('span', { class: 'pdf-go', html: icon('chev') }));
-  loadPdf(b).then(d => { meta.textContent = `PDF · ${d.numPages} page${d.numPages > 1 ? 's' : ''} · ${fmtSize(b.size || 0)}`; }).catch(() => {});
+  const showCount = n => { meta.textContent = `PDF · ${n} page${n > 1 ? 's' : ''} · ${fmtSize(b.size || 0)}`; };
+  if (b.pages) showCount(b.pages);
+  else loadPdf(b).then(d => { showCount(d.numPages); b.pages = d.numPages; changed(b); }).catch(() => {});
   const acts = h('div', { class: 'pdf-acts' },
     h('button', { class: 'mini' + (b.pdfInline ? ' on' : ''), html: icon(b.pdfInline ? 'min' : 'note') + (b.pdfInline ? 'Masquer les pages' : 'Afficher les pages ici'), title: 'Poser les pages dans la feuille, pour dessiner dessus', onclick: () => { b.pdfInline = !b.pdfInline; changed(b); rerender(b); } }),
     h('button', { class: 'mini', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }));
@@ -2661,7 +2727,7 @@ async function seedInk(p) {
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '4 · 11 oct.';
+const APP_VERSION = '5 · 11 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
