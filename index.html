@@ -619,6 +619,30 @@ body {
 }
 
 .app-version { width: 100%; padding: 2px 10px 0; font-size: 10.5px; color: var(--cover-muted); opacity: .75; letter-spacing: .04em; }
+
+/* ---------- Synchronisation ---------- */
+.sync-line { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: rgba(0,0,0,.18); color: var(--cover-muted); border-radius: 9px; padding: 7px 10px; font-size: 12px; text-align: left; }
+.sync-line svg { width: 16px; height: 16px; flex: none; }
+.sync-line.on.ok { color: #9fd8b4; }
+.sync-line.on.offline, .sync-line.on.error { color: #f0c27a; }
+.sync-line:hover { color: var(--gold-hi); }
+.sync-panel { display: grid; gap: 10px; }
+.sync-panel p { margin: 0; }
+.sync-panel .muted { color: var(--muted); font-size: 13px; }
+.sync-panel input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); font-size: 16px; }
+.sync-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.sync-row .btn { flex: 1 1 140px; justify-content: center; padding: 9px 12px; }
+.sync-err { color: var(--danger); font-size: 13px; }
+.sync-or { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.btn.google { justify-content: center; padding: 10px 12px; font-weight: 600; }
+.btn.google .g { font: 800 15px/1 Arial, sans-serif; color: #4285f4; }
+.linkish { border: 0; background: none; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; padding: 2px; justify-self: start; font-size: 13px; }
+.sync-who { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--tint-green); }
+.sync-who svg { width: 26px; height: 26px; color: var(--ok); }
+.sync-who b { display: block; word-break: break-all; }
+.sync-who span { font-size: 12.5px; color: var(--muted); }
+.sync-box { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.sync-box span { font-size: 13px; color: var(--muted); }
 /* ---------- PDF affiché comme un lien ---------- */
 .pdf-link { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); cursor: pointer; transition: border-color .12s, box-shadow .12s; }
 .pdf-link:hover { border-color: var(--gold-deep); box-shadow: 0 6px 18px -10px var(--shadow); }
@@ -793,6 +817,9 @@ const IC = {
   open: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   sort: '<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>',
   min: '<path d="M6 12h12"/>',
+  cloud: '<path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5z"/>',
+  cloudOk: '<path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5z"/><path d="M9.5 13.5l2 2 3.5-4"/>',
+  cloudOff: '<path d="M7 18a4.5 4.5 0 0 1-.5-9 6 6 0 0 1 2.2-3M12 4.2A6 6 0 0 1 18 9.5a4 4 0 0 1 1.6 7.3M3 3l18 18"/>',
   color: '<circle cx="12" cy="12" r="9"/><circle class="f" cx="8.5" cy="10" r="1.3"/><circle class="f" cx="12" cy="7.5" r="1.3"/><circle class="f" cx="15.5" cy="10" r="1.3"/>',
 };
 const icon = (n, extra = '') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${IC[n] || ''}</svg>`;
@@ -896,10 +923,17 @@ async function putBlob(blob) {
   blobUrls.set(id, URL.createObjectURL(blob));
   return id;
 }
+// Un fichier (image, PDF…) : d'abord dans ce navigateur, sinon téléchargé depuis le compte synchronisé.
+async function getBlob(id) {
+  if (!id) return null;
+  const local = await DB.get('blobs', id).catch(() => null);
+  if (local) return local;
+  return (typeof Sync !== 'undefined' && Sync.user) ? Sync.fetchBlob(id) : null;
+}
 async function blobUrl(id) {
   if (!id) return null;
   if (blobUrls.has(id)) return blobUrls.get(id);
-  const b = await DB.get('blobs', id);
+  const b = await getBlob(id);
   if (!b) return null;
   const u = URL.createObjectURL(b);
   blobUrls.set(id, u);
@@ -921,6 +955,7 @@ const dirty = new Set();
 let saveTimer = null;
 function touch(p = page(), opts = {}) {
   if (!p) return;
+  if (p.example && !opts.keepExample) delete p.example; // une page d'exemple modifiée devient une vraie page
   p.updated = Date.now();
   dirty.add(p.id);
   setStatus('dirty');
@@ -932,18 +967,18 @@ async function flush() {
   clearTimeout(saveTimer);
   const ids = [...dirty]; dirty.clear();
   try {
-    for (const id of ids) { const p = S.pages.get(id); if (p) await DB.put('pages', p); }
+    for (const id of ids) { const p = S.pages.get(id); if (p) { await DB.put('pages', p); Sync.queuePage(id); } }
     setStatus('saved');
   } catch (e) {
     setStatus('error');
     toast("Enregistrement impossible : l'espace de stockage du navigateur est peut-être plein. Exportez une sauvegarde.", 5000);
   }
 }
-function saveNotebook(nb) { DB.put('notebooks', nb).catch(() => setStatus('error')); }
+function saveNotebook(nb) { nb.updated = Date.now(); DB.put('notebooks', nb).then(() => Sync.queueNotebook(nb.id)).catch(() => setStatus('error')); }
 function setStatus(s) {
   const el = $('#status');
   if (s === 'dirty') { el.textContent = 'Enregistrement…'; el.className = 'status dirty'; }
-  else if (s === 'saved') { el.textContent = DB.db ? 'Enregistré' : 'Non enregistré (mode temporaire)'; el.className = 'status'; }
+  else if (s === 'saved') { el.textContent = !DB.db ? 'Non enregistré (mode temporaire)' : (Sync.user ? (Sync.state === 'ok' ? 'Enregistré et synchronisé' : Sync.state === 'offline' ? 'Enregistré · hors ligne' : 'Synchronisation…') : 'Enregistré'); el.className = 'status'; }
   else { el.textContent = 'Erreur d\'enregistrement'; el.className = 'status dirty'; }
 }
 window.addEventListener('beforeunload', () => { if (dirty.size) flush(); });
@@ -1159,7 +1194,7 @@ function notebookMenu(anchor, nb) {
     { label: 'Supprimer le carnet', icon: 'trash', danger: true, run: () => confirmBox('Supprimer ce carnet ?', `« ${nb.name} » et ses ${live.length} page(s) iront à la corbeille. Le carnet lui-même disparaît.`, 'Supprimer', async () => {
       if (S.notebooks.length === 1) { toast('Gardez au moins un carnet.'); return; }
       live.forEach(p => { p.trashed = true; p.nbId = S.notebooks.find(x => x.id !== nb.id).id; touch(p); });
-      S.notebooks = S.notebooks.filter(x => x.id !== nb.id); await DB.del('notebooks', nb.id);
+      S.notebooks = S.notebooks.filter(x => x.id !== nb.id); await DB.del('notebooks', nb.id); Sync.removeNotebook(nb.id);
       if (live.some(p => p.id === S.current)) openFirst(); else renderSide();
     }) },
   ]);
@@ -1174,6 +1209,7 @@ function createPage(nbId) {
 async function destroyPage(p) {
   for (const b of p.blocks) if (b.blob) { await DB.del('blobs', b.blob).catch(() => {}); }
   S.pages.delete(p.id); dirty.delete(p.id); await DB.del('pages', p.id);
+  Sync.removePage(p.id);
   if (S.current === p.id) openFirst();
 }
 function openFirst() {
@@ -1481,7 +1517,7 @@ const RENDER = {
     if (!SANDBOXED) { open = h('a', { class: 'btn', target: '_blank', rel: 'noopener', html: icon('open') + 'Ouvrir' }); blobUrl(b.blob).then(u => { if (u) open.href = u; }); }
     return h('div', { class: 'card' }, h('div', { class: 'ico', html: icon('file') }),
       h('div', { class: 'txt' }, h('b', { text: b.name || 'Fichier' }), h('span', { text: (b.mime || 'fichier') + ' · ' + fmtSize(b.size || 0) })),
-      h('div', { class: 'card-acts' }, open, h('button', { class: 'btn', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'fichier', blob); } })));
+      h('div', { class: 'card-acts' }, open, h('button', { class: 'btn', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await getBlob(b.blob); if (blob) saveFile(b.name || 'fichier', blob); } })));
   },
   link(b) {
     if (!b.url) {
@@ -1571,7 +1607,7 @@ const pdfDocs = new Map();
 function loadPdf(b) {
   if (pdfDocs.has(b.blob)) { const pr = pdfDocs.get(b.blob); pdfDocs.delete(b.blob); pdfDocs.set(b.blob, pr); return pr; }
   const pr = (async () => {
-    const [lib, blob] = await Promise.all([withTimeout(loadPdfJs(), 30000, 'reader'), DB.get('blobs', b.blob)]);
+    const [lib, blob] = await Promise.all([withTimeout(loadPdfJs(), 30000, 'reader'), getBlob(b.blob)]);
     if (!blob) throw Object.assign(new Error('missing'), { code: 'missing' });
     const task = lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false });
     try { return await withTimeout(task.promise, 60000, 'timeout'); }
@@ -1691,7 +1727,7 @@ async function openPdfReader(b, startPage = 1) {
       h('p', { text: pdfError(e) }),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', html: icon('restore') + 'Réessayer', onclick: () => { pdfRetry(b); R.close(); openPdfReader(b, startPage); } }),
-        h('button', { class: 'btn', html: icon('download') + 'Enregistrer', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }))));
+        h('button', { class: 'btn', html: icon('download') + 'Enregistrer', onclick: async () => { const blob = await getBlob(b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }))));
   };
   R.body.append(h('div', { class: 'rd-msg' }, h('p', { text: 'Ouverture du PDF…' })));
   let doc;
@@ -1790,7 +1826,7 @@ function pdfLink(b) {
   else loadPdf(b).then(d => { showCount(d.numPages); b.pages = d.numPages; changed(b); }).catch(() => {});
   const acts = h('div', { class: 'pdf-acts' },
     h('button', { class: 'mini' + (b.pdfInline ? ' on' : ''), html: icon(b.pdfInline ? 'min' : 'note') + (b.pdfInline ? 'Masquer les pages' : 'Afficher les pages ici'), title: 'Poser les pages dans la feuille, pour dessiner dessus', onclick: () => { b.pdfInline = !b.pdfInline; changed(b); rerender(b); } }),
-    h('button', { class: 'mini', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await DB.get('blobs', b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }));
+    h('button', { class: 'mini', html: icon('download') + 'Enregistrer', title: 'Enregistrer sur l\'appareil', onclick: async () => { const blob = await getBlob(b.blob); if (blob) saveFile(b.name || 'document.pdf', blob); } }));
   const wrap = h('div', { class: 'pdf' }, link, acts);
   if (b.pdfInline) wrap.append(pdfViewer(b));
   return wrap;
@@ -2539,7 +2575,7 @@ async function exportAll() {
   toast('Préparation de la sauvegarde…');
   const pages = [...S.pages.values()];
   const blobs = {};
-  for (const p of pages) for (const b of p.blocks) if (b.blob && !blobs[b.blob]) { const bl = await DB.get('blobs', b.blob); if (bl) blobs[b.blob] = await blobToDataUrl(bl); }
+  for (const p of pages) for (const b of p.blocks) if (b.blob && !blobs[b.blob]) { const bl = await getBlob(b.blob); if (bl) blobs[b.blob] = await blobToDataUrl(bl); }
   const data = { app: 'carnet-seyes', version: 1, exported: new Date().toISOString(), notebooks: S.notebooks, pages, blobs };
   saveFile(`carnet-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
 }
@@ -2605,6 +2641,7 @@ function moreMenu(anchor) {
     { sep: true },
     { label: 'Exporter la page en Markdown', icon: 'download', run: () => saveFile((p.title || 'page') + '.md', new Blob([pageMarkdown(p)], { type: 'text/markdown' })) },
     { label: 'Exporter les dessins en image', icon: 'paint', run: exportPagePng },
+    { label: Sync.user ? 'Synchronisation : activée' : 'Synchroniser mes appareils', icon: 'cloud', run: openSyncPanel },
     { label: 'Sauvegarde complète (tous les carnets)', icon: 'download', run: exportAll },
     { label: 'Importer une sauvegarde', icon: 'upload', run: () => $('#file-import').click() },
     { sep: true },
@@ -2659,13 +2696,14 @@ async function exampleImage() {
   return new Promise(res => c.toBlob(res, 'image/png'));
 }
 async function seed() {
-  const nb = { id: 'n_' + uid(), name: 'Mon carnet', color: NB_COLORS[0], order: 0, created: Date.now(), open: true };
-  const nb2 = { id: 'n_' + uid(), name: 'Idées en vrac', color: NB_COLORS[2], order: 1, created: Date.now(), open: true };
+  const nb = { id: 'n_' + uid(), name: 'Mon carnet', color: NB_COLORS[0], order: 0, created: Date.now(), open: true, example: true };
+  const nb2 = { id: 'n_' + uid(), name: 'Idées en vrac', color: NB_COLORS[2], order: 1, created: Date.now(), open: true, example: true };
   S.notebooks = [nb, nb2];
   const img = await exampleImage();
   const imgId = img ? await putBlob(img) : null;
   const p = newPage(nb.id, 'Bienvenue dans ton carnet');
   p.tags = ['exemple', 'mode-emploi'];
+  p.example = true;
   p.blocks = [
     newBlock('text', { html: '<p>Cette page est un <b>exemple</b> : elle montre tout ce que le carnet sait faire. Modifie-la, ou crée une nouvelle page avec le <b>+</b> à côté du nom du carnet.</p><p>Sélectionne un mot pour le mettre en forme : <mark style="background-color: rgba(255, 213, 0, .45);">surligner au marqueur</mark>, <span style="color: #d23f45;">changer la couleur</span>, ajouter un lien…</p>', note: 'Les notes en marge s\'écrivent ici, à côté du texte.' }),
     newBlock('heading', { text: 'Coller n\'importe quoi', level: 2 }),
@@ -2680,6 +2718,7 @@ async function seed() {
   p.stickies = [{ id: uid(), x: 735, y: 70, w: 220, h: 150, color: 'yellow', html: 'Ceci est un post-it.<br>Déplace-le par sa barre du haut, redimensionne-le par le coin.', rot: 2, min: false }];
   p.seedInk = true;
   const p2 = newPage(nb2.id, 'Page vierge');
+  p2.example = true;
   p2.created -= 1000; p2.updated -= 1000;
   S.pages.set(p.id, p); S.pages.set(p2.id, p2);
   await DB.put('notebooks', nb); await DB.put('notebooks', nb2);
@@ -2715,19 +2754,337 @@ async function seedInk(p) {
   if (listBlk && p.stickies[0]) { const r = rel(listBlk); p.stickies[0].x = 770; p.stickies[0].y = Math.max(0, r.y - 20); $$('.sticky').forEach(el => el._place && el._place()); }
   const check = $('.blk[data-type="checklist"] .checklist li');
   if (check) { const r = rel(check); p.strokes.push({ id: uid(), tool: 'ellipse', color: '#2e9a5a', size: 2.5, pts: [[r.x - 8, r.y - 4, .5], [r.x + Math.min(r.w, 440), r.y + r.h + 4, .5]], seed: 4 }); }
-  touch(p); redraw(); updateFoot();
+  touch(p, { keepExample: true }); redraw(); updateFoot();
 }
 
 /* =========================================================
    Démarrage et raccourcis
    ========================================================= */
 /* =========================================================
+   Synchronisation entre appareils (Firebase : compte + Firestore)
+   Chaque appareil garde tout dans IndexedDB ; le compte en ligne sert de relais.
+   Pages et carnets : la version modifiée en dernier gagne. Fichiers : découpés en morceaux.
+   ========================================================= */
+// Configuration du projet Firebase (identifiants publics, la sécurité vient des règles Firestore).
+const FIREBASE_CONFIG = null;
+const FB_CONFIG = window.CARNET_FIREBASE_CONFIG || FIREBASE_CONFIG;
+const FB_SDK = new URL('vendor/firebase/', location.href).href;
+const PART = 700 * 1024; // taille d'un morceau de fichier (une fiche Firestore ≤ 1 Mo)
+function loadScript(src) {
+  return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = () => rej(new Error('script')); document.head.append(sc); });
+}
+const Sync = {
+  user: null, state: 'off', lastSync: 0, auth: null, db: null, unsubs: [], timer: null, busy: false,
+  remoteBusy: new Set(), // pages en cours d'écriture depuis l'autre appareil
+  available() { return !!FB_CONFIG && !SANDBOXED && /^https?:$/.test(location.protocol); },
+  queue() { return new Set(prefs.get('syncQueue', [])); },
+  saveQueue(q) { prefs.set('syncQueue', [...q]); },
+  queuePage(id) { if (!this.user || this.remoteBusy.has(id)) return; const q = this.queue(); q.add('p:' + id); this.saveQueue(q); this.kick(); },
+  queueNotebook(id) { if (!this.user) return; const q = this.queue(); q.add('n:' + id); this.saveQueue(q); this.kick(); },
+  removePage(id) { if (!this.user) return; const q = this.queue(); q.delete('p:' + id); q.add('dp:' + id); this.saveQueue(q); this.kick(); },
+  removeNotebook(id) { if (!this.user) return; const q = this.queue(); q.delete('n:' + id); q.add('dn:' + id); this.saveQueue(q); this.kick(); },
+  base() { return this.db.collection('users').doc(this.user.uid); },
+  setState(st) { this.state = st; if (st === 'ok') this.lastSync = Date.now(); this.paint(); if ($('#status') && !dirty.size) setStatus('saved'); },
+  paint() {
+    const el = $('#sync-line'); if (!el) return;
+    if (!this.user) { el.innerHTML = icon('cloudOff') + '<span>Appareils non synchronisés</span>'; el.className = 'sync-line'; return; }
+    const txt = { ok: 'Synchronisé', connecting: 'Synchronisation…', offline: 'Hors ligne : se synchronisera au retour', error: 'Problème de synchronisation' }[this.state] || '';
+    el.innerHTML = icon(this.state === 'ok' ? 'cloudOk' : this.state === 'offline' || this.state === 'error' ? 'cloudOff' : 'cloud') + `<span>${esc(txt)}</span>`;
+    el.className = 'sync-line on ' + this.state;
+  },
+  async load() {
+    if (this.db) return;
+    for (const f of ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js']) await loadScript(FB_SDK + f);
+    firebase.initializeApp(FB_CONFIG);
+    this.auth = firebase.auth();
+    this.db = firebase.firestore();
+    const emu = (() => { try { return localStorage.getItem('carnet-fb-emulator'); } catch (e) { return null; } })();
+    if (emu) { this.auth.useEmulator('http://' + emu + ':9099'); this.db.useEmulator(emu, 8080); }
+    else this.db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    try { await this.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
+  },
+  async init() {
+    if (!this.available()) return;
+    window.addEventListener('online', () => { if (this.user) { this.setState('connecting'); this.kick(0); } });
+    window.addEventListener('offline', () => { if (this.user) this.setState('offline'); });
+    // Le module n'est chargé que si l'appareil a déjà été connecté : le carnet démarre aussi vite qu'avant.
+    if (prefs.get('syncOn')) await this.start().catch(() => this.setState('offline'));
+  },
+  async start() {
+    await this.load();
+    if (this.started) return; this.started = true;
+    this.auth.onAuthStateChanged(u => this.onUser(u));
+  },
+  stop() { this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; },
+  async onUser(u) {
+    this.stop();
+    this.user = u;
+    prefs.set('syncOn', !!u);
+    if (!u) { this.setState('off'); renderSide(); return; }
+    this.setState(navigator.onLine === false ? 'offline' : 'connecting');
+    const firstTime = prefs.get('syncUid') !== u.uid;
+    if (firstTime) prefs.set('syncQueue', []);
+    // 1) les carnets d'abord (pour regrouper « Mon carnet » d'un appareil avec celui de l'autre)
+    let nbFirst = true;
+    this.unsubs.push(this.base().collection('notebooks').onSnapshot(snap => {
+      const remoteIds = new Set();
+      snap.docChanges().forEach(ch => { remoteIds.add(ch.doc.id); if (!ch.doc.metadata.hasPendingWrites) this.applyNotebook(ch.doc.id, ch.doc.data()); });
+      if (nbFirst) {
+        nbFirst = false;
+        snap.docs.forEach(d => remoteIds.add(d.id));
+        if (firstTime) this.mergeNotebooks(snap.docs);
+        S.notebooks.forEach(nb => { if (!remoteIds.has(nb.id)) this.queueNotebook(nb.id); });
+        this.listenPages(firstTime);
+      }
+      renderSide();
+    }, err => this.fail(err)));
+  },
+  listenPages(firstTime) {
+    let first = true;
+    this.unsubs.push(this.base().collection('pages').onSnapshot(async snap => {
+      for (const ch of snap.docChanges()) {
+        if (ch.doc.metadata.hasPendingWrites || ch.type === 'removed') continue;
+        await this.applyPage(ch.doc.id, ch.doc.data()).catch(() => {});
+      }
+      if (first) {
+        first = false;
+        const remote = new Map(snap.docs.map(d => [d.id, d.data().updated || 0]));
+        // Le compte a déjà des pages : les pages d'exemple jamais modifiées de cet appareil ne sont pas recopiées.
+        if (firstTime && [...remote.keys()].length) {
+          for (const p of [...S.pages.values()]) if (p.example && !remote.has(p.id)) { S.pages.delete(p.id); await DB.del('pages', p.id); }
+          if (!S.pages.has(S.current)) openFirst();
+        }
+        S.pages.forEach(p => { if (!remote.has(p.id) || (p.updated || 0) > remote.get(p.id)) this.queuePage(p.id); });
+        prefs.set('syncUid', this.user.uid);
+        this.kick(0);
+      }
+      if (!this.queue().size && navigator.onLine !== false) this.setState('ok');
+      debounceSide();
+    }, err => this.fail(err)));
+  },
+  fail(err) {
+    console.warn('sync', err);
+    this.setState(navigator.onLine === false || err?.code === 'unavailable' ? 'offline' : 'error');
+    if (err?.code === 'permission-denied') toast('Synchronisation refusée : vérifiez les règles Firestore du projet.', 6000);
+  },
+  // Deux appareils ont chacun un carnet du même nom : on les réunit sous un seul.
+  mergeNotebooks(remoteDocs) {
+    const byName = new Map(remoteDocs.filter(d => !d.data().deleted).map(d => [norm(d.data().name || ''), d.id]));
+    for (const nb of [...S.notebooks]) {
+      const rid = byName.get(norm(nb.name || ''));
+      if (!rid || rid === nb.id) continue;
+      S.pages.forEach(p => { if (p.nbId === nb.id) { p.nbId = rid; p.updated = Date.now(); DB.put('pages', p); } });
+      S.notebooks = S.notebooks.filter(x => x !== nb);
+      DB.del('notebooks', nb.id);
+    }
+  },
+  applyNotebook(id, data) {
+    const local = S.notebooks.find(x => x.id === id);
+    if (data.deleted) {
+      if (local) { S.notebooks = S.notebooks.filter(x => x !== local); DB.del('notebooks', id); }
+      return;
+    }
+    if (local && (local.updated || 0) >= (data.updated || 0)) return;
+    const nb = { id, name: String(data.name || 'Carnet'), color: /^#[0-9a-f]{6}$/i.test(data.color || '') ? data.color : NB_COLORS[0], order: +data.order || 0, created: +data.created || Date.now(), updated: +data.updated || 0, open: data.open !== false };
+    if (local) Object.assign(local, nb); else S.notebooks.push(nb);
+    DB.put('notebooks', local || nb);
+    if (S.current && page()?.nbId === id) renderCrumb();
+  },
+  async applyPage(id, data) {
+    const local = S.pages.get(id);
+    if (data.deleted) {
+      if (!local) return;
+      if ((local.updated || 0) > (data.updated || 0)) { this.queuePage(id); return; }
+      S.pages.delete(id); await DB.del('pages', id);
+      if (S.current === id) openFirst();
+      return;
+    }
+    if (local && (local.updated || 0) >= (data.updated || 0)) { if ((local.updated || 0) > (data.updated || 0)) this.queuePage(id); return; }
+    let json = data.json;
+    if (!json && data.parts) {
+      const parts = await Promise.all(Array.from({ length: data.parts }, (_, i) => this.base().collection('parts').doc(`${id}_p${i}`).get()));
+      json = parts.map(d => d.data()?.s || '').join('');
+    }
+    let p;
+    try { p = JSON.parse(json); } catch (e) { return; }
+    if (!p || p.id !== id) return;
+    p.strokes ||= []; p.stickies ||= []; p.tags ||= []; p.blocks ||= [];
+    sanitizePage(p);
+    this.remoteBusy.add(id);
+    S.pages.set(id, p);
+    await DB.put('pages', p);
+    this.remoteBusy.delete(id);
+    if (S.current === id) this.refreshCurrent();
+  },
+  // La page ouverte a changé sur l'autre appareil : on l'affiche, sauf pendant qu'on écrit dedans.
+  refreshCurrent() {
+    const editing = document.activeElement && $('#sheet')?.contains(document.activeElement) && document.activeElement.isContentEditable;
+    if (editing || S.mode === 'draw') { this.pendingRefresh = true; return; }
+    const sc = $('#scroller'), y = sc.scrollTop;
+    renderCrumb(); renderPage(); sc.scrollTop = y;
+    this.pendingRefresh = false;
+  },
+  kick(delay = 1200) {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.push(), delay);
+  },
+  async push() {
+    if (!this.user || this.busy) return;
+    if (navigator.onLine === false) { this.setState('offline'); return; }
+    this.busy = true;
+    try {
+      let q = this.queue();
+      if (q.size) this.setState('connecting');
+      for (const key of q) {
+        const [kind, id] = key.split(':');
+        if (kind === 'p') await this.pushPage(id);
+        else if (kind === 'n') { const nb = S.notebooks.find(x => x.id === id); if (nb) await this.base().collection('notebooks').doc(id).set({ ...nb, updated: nb.updated || Date.now(), deleted: false }); }
+        else if (kind === 'dp') await this.base().collection('pages').doc(id).set({ deleted: true, updated: Date.now() });
+        else if (kind === 'dn') await this.base().collection('notebooks').doc(id).set({ deleted: true, updated: Date.now() });
+        const now = this.queue(); now.delete(key); this.saveQueue(now);
+      }
+      this.setState('ok');
+    } catch (e) {
+      this.fail(e);
+      this.kick(15000); // nouvel essai plus tard
+    } finally {
+      this.busy = false;
+      if (this.queue().size && this.state === 'ok') this.kick(500);
+    }
+  },
+  async pushPage(id) {
+    const p = S.pages.get(id); if (!p) return;
+    for (const b of p.blocks) if (b.blob) await this.pushBlob(b.blob);
+    const json = JSON.stringify(p);
+    const ref = this.base().collection('pages').doc(id);
+    if (new Blob([json]).size < 900000) { await ref.set({ updated: p.updated || Date.now(), json, deleted: false }); return; }
+    const CH = 250000, n = Math.ceil(json.length / CH);
+    for (let i = 0; i < n; i++) await this.base().collection('parts').doc(`${id}_p${i}`).set({ s: json.slice(i * CH, (i + 1) * CH) });
+    await ref.set({ updated: p.updated || Date.now(), parts: n, deleted: false });
+  },
+  sentBlobs() { return new Set(prefs.get('syncBlobs_' + this.user.uid, [])); },
+  async pushBlob(id) {
+    const sent = this.sentBlobs();
+    if (sent.has(id)) return;
+    const meta = this.base().collection('blobs').doc(id);
+    const remote = await meta.get();
+    if (!remote.exists) {
+      const blob = await DB.get('blobs', id).catch(() => null);
+      if (!blob) return;
+      if (blob.size > 45 * 1024 * 1024) { toast('Un fichier de plus de 45 Mo n\'est pas synchronisé (il reste sur cet appareil).', 5000); return; }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const n = Math.max(1, Math.ceil(bytes.length / PART));
+      for (let i = 0; i < n; i++) await this.base().collection('parts').doc(`${id}_${i}`).set({ b: firebase.firestore.Blob.fromUint8Array(bytes.subarray(i * PART, (i + 1) * PART)) });
+      await meta.set({ type: blob.type || '', size: blob.size, parts: n });
+    }
+    sent.add(id); prefs.set('syncBlobs_' + this.user.uid, [...sent]);
+  },
+  fetching: new Map(),
+  fetchBlob(id) {
+    if (this.fetching.has(id)) return this.fetching.get(id);
+    const pr = (async () => {
+      const meta = await this.base().collection('blobs').doc(id).get();
+      if (!meta.exists) return null;
+      const { parts = 1, type = '' } = meta.data();
+      const docs = await Promise.all(Array.from({ length: parts }, (_, i) => this.base().collection('parts').doc(`${id}_${i}`).get()));
+      const chunks = docs.map(d => d.data()?.b?.toUint8Array?.() || new Uint8Array());
+      const blob = new Blob(chunks, { type });
+      await DB.put('blobs', blob, id);
+      const sent = this.sentBlobs(); sent.add(id); prefs.set('syncBlobs_' + this.user.uid, [...sent]);
+      return blob;
+    })().catch(() => null).finally(() => this.fetching.delete(id));
+    this.fetching.set(id, pr);
+    return pr;
+  },
+  async signOut() { await this.auth?.signOut(); prefs.set('syncUid', null); toast('Déconnecté. Vos notes restent sur cet appareil.'); },
+};
+document.addEventListener('focusout', () => { setTimeout(() => { if (Sync.pendingRefresh && !(document.activeElement?.isContentEditable && $('#sheet')?.contains(document.activeElement))) Sync.refreshCurrent(); }, 300); });
+
+const AUTH_ERRORS = {
+  'auth/invalid-email': 'Cette adresse e-mail n\'est pas valide.',
+  'auth/missing-password': 'Indiquez un mot de passe.',
+  'auth/weak-password': 'Le mot de passe doit faire au moins 6 caractères.',
+  'auth/email-already-in-use': 'Un compte existe déjà avec cet e-mail : choisissez « Se connecter ».',
+  'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
+  'auth/invalid-login-credentials': 'E-mail ou mot de passe incorrect.',
+  'auth/wrong-password': 'E-mail ou mot de passe incorrect.',
+  'auth/user-not-found': 'Aucun compte avec cet e-mail : choisissez « Créer mon compte ».',
+  'auth/too-many-requests': 'Trop d\'essais. Patientez quelques minutes.',
+  'auth/network-request-failed': 'Pas de connexion Internet.',
+  'auth/popup-blocked': 'La fenêtre Google a été bloquée. Utilisez l\'e-mail et le mot de passe.',
+  'auth/popup-closed-by-user': 'Connexion Google annulée.',
+  'auth/operation-not-supported-in-this-environment': 'La connexion Google ne marche pas ici. Utilisez l\'e-mail et le mot de passe.',
+  'auth/unauthorized-domain': 'Ce site n\'est pas autorisé dans Firebase (Authentication → Paramètres → Domaines autorisés).',
+  'auth/operation-not-allowed': 'Cette méthode de connexion n\'est pas activée dans Firebase.',
+  'auth/requires-recent-login': 'Reconnectez-vous puis réessayez.',
+  'auth/provider-already-linked': 'Ce compte a déjà un mot de passe.',
+};
+const authMsg = e => AUTH_ERRORS[e?.code] || 'La connexion a échoué. Réessayez.';
+function isIOS() { const ua = navigator.userAgent; return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); }
+
+async function openSyncPanel() {
+  const body = h('div', { class: 'sync-panel' });
+  const close = modal('Synchroniser mes appareils', body, [{ label: 'Fermer' }]);
+  if (!Sync.available()) {
+    if (!FB_CONFIG) body.append(h('p', { text: 'La synchronisation n\'est pas encore branchée sur un compte en ligne.' }));
+    else body.append(h('p', { text: 'La synchronisation fonctionne dans l\'application installée (ou à son adresse dans le navigateur), pas dans cet aperçu.' }),
+      APP_URL ? h('input', { type: 'text', id: 'sync-app-url', value: APP_URL, readonly: true, onclick: e => e.target.select() }) : null);
+    return;
+  }
+  body.append(h('p', { class: 'muted', text: 'Chargement…' }));
+  try { await Sync.start(); } catch (e) { body.innerHTML = ''; body.append(h('p', { text: 'Pas de connexion Internet : réessayez une fois connecté.' })); return; }
+  const draw = () => {
+    body.innerHTML = '';
+    const u = Sync.user;
+    if (u) {
+      const when = Sync.lastSync ? new Date(Sync.lastSync).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+      const providers = u.providerData.map(x => x.providerId);
+      body.append(
+        h('div', { class: 'sync-who' }, h('span', { html: icon('cloudOk') }), h('div', {}, h('b', { text: u.email || 'Compte connecté' }), h('span', { text: `État : ${({ ok: 'synchronisé', connecting: 'en cours…', offline: 'hors ligne', error: 'problème' })[Sync.state] || '…'} · dernière synchro ${when}` }))),
+        h('p', { text: 'Connectez-vous avec le même compte sur vos autres appareils : vos carnets, pages, images et PDF y apparaissent tout seuls.' }),
+        h('div', { class: 'sync-row' },
+          h('button', { class: 'btn primary', html: icon('restore') + 'Synchroniser maintenant', onclick: () => { Sync.setState('connecting'); Sync.kick(0); toast('Synchronisation lancée'); } }),
+          h('button', { class: 'btn', text: 'Se déconnecter', onclick: async () => { await Sync.signOut(); draw(); } })));
+      if (!providers.includes('password')) {
+        const pw = h('input', { type: 'password', id: 'sync-addpw', placeholder: 'Nouveau mot de passe (6 caractères min.)', autocomplete: 'new-password' });
+        body.append(h('div', { class: 'sync-box' },
+          h('b', { text: 'Pour l\'iPhone : ajouter un mot de passe' }),
+          h('span', { text: 'Sur iPhone, l\'application installée ne peut pas ouvrir la fenêtre Google. Ajoutez un mot de passe à ce compte pour vous y connecter avec ' + (u.email || 'votre e-mail') + '.' }),
+          pw, h('button', { class: 'btn', text: 'Ajouter ce mot de passe', onclick: async () => {
+            try { await u.linkWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, pw.value)); toast('Mot de passe ajouté'); draw(); }
+            catch (e) { toast(authMsg(e), 5000); }
+          } })));
+      }
+      return;
+    }
+    const email = h('input', { type: 'email', id: 'sync-email', placeholder: 'Adresse e-mail', autocomplete: 'email' });
+    const pass = h('input', { type: 'password', id: 'sync-pass', placeholder: 'Mot de passe (6 caractères min.)', autocomplete: 'current-password' });
+    const err = h('p', { class: 'sync-err', hidden: true });
+    const run = async fn => { err.hidden = true; try { await fn(); toast('Connecté : synchronisation en cours'); close(); } catch (e) { err.textContent = authMsg(e); err.hidden = false; } };
+    body.append(h('p', { text: 'Connectez-vous avec le même compte sur votre téléphone et votre ordinateur : vos notes seront les mêmes partout, et se mettront à jour toutes seules.' }));
+    const googleOk = !(isIOS() && isInstalled());
+    if (googleOk) body.append(h('button', { class: 'btn google', html: '<span class="g">G</span>Continuer avec Google', onclick: () => run(() => Sync.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())) }), h('div', { class: 'sync-or', text: 'ou avec un e-mail' }));
+    else body.append(h('p', { class: 'muted', text: 'Sur iPhone, l\'application installée se connecte avec un e-mail et un mot de passe.' }));
+    body.append(email, pass, err,
+      h('div', { class: 'sync-row' },
+        h('button', { class: 'btn primary', text: 'Se connecter', onclick: () => run(() => Sync.auth.signInWithEmailAndPassword(email.value.trim(), pass.value)) }),
+        h('button', { class: 'btn', text: 'Créer mon compte', onclick: () => run(() => Sync.auth.createUserWithEmailAndPassword(email.value.trim(), pass.value)) })),
+      h('button', { class: 'linkish', text: 'Mot de passe oublié ?', onclick: async () => {
+        try { await Sync.auth.sendPasswordResetEmail(email.value.trim()); err.textContent = 'E-mail envoyé : suivez le lien pour choisir un nouveau mot de passe.'; err.hidden = false; }
+        catch (e) { err.textContent = authMsg(e); err.hidden = false; }
+      } }));
+  };
+  draw();
+  const off = Sync.auth.onAuthStateChanged(() => { if (body.isConnected) draw(); else off(); });
+}
+
+/* =========================================================
    Application installable (PWA)
    ========================================================= */
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '5 · 11 oct.';
+const APP_VERSION = '6 · 20 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
@@ -2781,7 +3138,8 @@ async function boot() {
   $('#b-more').innerHTML = icon('more');
   $('#b-new-nb').innerHTML = icon('book') + 'Nouveau carnet';
   $('#b-backup').innerHTML = icon('download') + 'Sauvegarder';
-  $('.side-foot').append(h('span', { class: 'app-version', text: 'Version ' + APP_VERSION }));
+  $('.side-foot').append(h('button', { class: 'sync-line', id: 'sync-line', onclick: openSyncPanel }), h('span', { class: 'app-version', text: 'Version ' + APP_VERSION }));
+  Sync.paint();
   applyTheme(prefs.get('theme', 'system'));
   if (!prefs.get('side', !matchMedia('(max-width: 860px)').matches)) setSide(false);
 
@@ -2797,6 +3155,7 @@ async function boot() {
   const target = first || (last && S.pages.has(last) && !S.pages.get(last).trashed ? last : null);
   if (target) openPage(target); else openFirst();
   setStatus('saved');
+  Sync.init();
 
   $('#b-side').onclick = () => setSide($('#app').classList.contains('no-side'));
   $('#scrim').onclick = () => setSide(false);
