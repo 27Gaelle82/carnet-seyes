@@ -1,1 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#121316"/><rect x="46" y="46" width="420" height="420" fill="none" stroke="#efece6" stroke-opacity=".22" stroke-width="3"/><text x="256" y="318" text-anchor="middle" font-family="'Bodoni Moda', Didot, 'Bodoni 72', serif" font-size="184" font-weight="500" letter-spacing="6" fill="#efece6">CS</text><path d="M371 0h38v164l-19-30-19 30z" fill="#8a2433"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f5ef"/><stop offset="1" stop-color="#e8e4da"/></linearGradient>
+    <linearGradient id="cv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a6cc4"/><stop offset=".55" stop-color="#2a4c9c"/><stop offset="1" stop-color="#1f3a7a"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(156,112)">
+    <rect x="10" y="10" width="200" height="270" rx="10" fill="#000" fill-opacity=".12"/>
+    <rect x="0" y="0" width="200" height="270" rx="10" fill="url(#cv)"/>
+    <rect x="0" y="0" width="30" height="270" rx="8" fill="#000" fill-opacity=".22"/>
+    <rect x="62" y="52" width="110" height="46" rx="5" fill="#ffffff" fill-opacity=".92"/>
+    <path d="M150 -6 h26 v120 l-13 -14 l-13 14 z" fill="#c9353b"/>
+  </g>
+</svg>
