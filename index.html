@@ -2766,7 +2766,14 @@ async function seedInk(p) {
    Pages et carnets : la version modifiée en dernier gagne. Fichiers : découpés en morceaux.
    ========================================================= */
 // Configuration du projet Firebase (identifiants publics, la sécurité vient des règles Firestore).
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyD9PmQRiRmJUETeE_PyOuFzVITt3yCoASg',
+  authDomain: 'it-note-book.firebaseapp.com',
+  projectId: 'it-note-book',
+  storageBucket: 'it-note-book.firebasestorage.app',
+  messagingSenderId: '971516694745',
+  appId: '1:971516694745:web:c6d525be54412d895d6ec8',
+};
 const FB_CONFIG = window.CARNET_FIREBASE_CONFIG || FIREBASE_CONFIG;
 const FB_SDK = new URL('vendor/firebase/', location.href).href;
 const PART = 700 * 1024; // taille d'un morceau de fichier (une fiche Firestore ≤ 1 Mo)
@@ -3084,7 +3091,7 @@ async function openSyncPanel() {
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '6 · 20 oct.';
+const APP_VERSION = '7 · 23 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
