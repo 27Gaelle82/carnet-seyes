@@ -2585,9 +2585,9 @@ $('#file-import').addEventListener('change', async e => {
     const data = JSON.parse(await f.text());
     if (data.app !== 'carnet-seyes') throw new Error('format');
     for (const [id, url] of Object.entries(data.blobs || {})) await DB.put('blobs', dataUrlToBlob(url), id);
-    for (const nb of data.notebooks || []) { if (!S.notebooks.some(x => x.id === nb.id)) { nb.order = S.notebooks.length; S.notebooks.push(nb); } await DB.put('notebooks', S.notebooks.find(x => x.id === nb.id)); }
+    for (const nb of data.notebooks || []) { if (!S.notebooks.some(x => x.id === nb.id)) { nb.order = S.notebooks.length; S.notebooks.push(nb); } const keep = S.notebooks.find(x => x.id === nb.id); keep.updated = Date.now(); await DB.put('notebooks', keep); Sync.queueNotebook(nb.id); }
     let n = 0;
-    for (const p of data.pages || []) { sanitizePage(p); S.pages.set(p.id, p); await DB.put('pages', p); n++; }
+    for (const p of data.pages || []) { sanitizePage(p); delete p.example; p.strokes ||= []; p.stickies ||= []; p.tags ||= []; p.updated = Math.max(p.updated || 0, Date.now() - 1000); S.pages.set(p.id, p); await DB.put('pages', p); Sync.queuePage(p.id); n++; }
     renderSide(); toast(`${n} page${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}`);
   } catch (err) { toast('Ce fichier n\'est pas une sauvegarde du Carnet Seyès.', 4000); }
   e.target.value = '';
@@ -3091,7 +3091,7 @@ async function openSyncPanel() {
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '7 · 23 oct.';
+const APP_VERSION = '8 · 23 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
