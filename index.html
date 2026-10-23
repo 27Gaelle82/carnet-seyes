@@ -781,6 +781,15 @@ input::placeholder { color: var(--muted); opacity: 1; }
 :root { --page-ink: #18202c; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page-ink: #18202c; } }
 :root[data-theme="dark"] { --page-ink: #18202c; }
+
+/* Barre des carnets : la page ouverte en bleu plein avec texte blanc, les étiquettes en texte foncé (plus de bleu sur bleu) */
+:root { --side-active: #2a4c9c; --side-active-fg: #ffffff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --side-active: #3b5db3; --side-active-fg: #ffffff; } }
+:root[data-theme="dark"] { --side-active: #3b5db3; --side-active-fg: #ffffff; }
+.pg.active { background: var(--side-active); color: var(--side-active-fg); box-shadow: none; font-weight: 600; }
+.pg.active .pg-d, .pg.active svg { color: var(--side-active-fg); opacity: .9; }
+.side .tag { background: var(--chrome-field); color: var(--cover-ink); border: 1px solid var(--cover-line); }
+.side .tag.on, .side button.tag:hover { background: var(--side-active); color: var(--side-active-fg); border-color: var(--side-active); }
 </style>
 </head>
 <body>
@@ -3168,7 +3177,7 @@ async function openSyncPanel() {
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '13 · 23 oct.';
+const APP_VERSION = '14 · 23 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
