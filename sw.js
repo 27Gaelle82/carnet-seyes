@@ -1,6 +1,6 @@
 // Carnet Seyès : fonctionnement hors connexion.
 // Changer VERSION à chaque mise à jour des fichiers de l'application.
-const VERSION = 'carnet-seyes-v10';
+const VERSION = 'carnet-seyes-v11';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',

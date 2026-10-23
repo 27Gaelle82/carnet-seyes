@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Carnet Seyès</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#f6f3ec">
+<meta name="theme-color" content="#f7f7f8">
 <meta name="application-name" content="Carnet Seyès">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,7 +17,7 @@
 <!--ARTIFACT-START-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Figtree:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400;1,7..72,600&family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;0,6..96,700;1,6..96,500;1,6..96,600&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Figtree:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400;1,7..72,600&family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
 /* Mise en page : bureau (fond) + feuille de cahier centrée, réglure Seyès, colonne de marge à droite pour les notes manuscrites. */
 :root {
@@ -781,6 +781,175 @@ input::placeholder { color: var(--muted); opacity: 1; }
 :root { --page-ink: #18202c; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page-ink: #18202c; } }
 :root[data-theme="dark"] { --page-ink: #18202c; }
+
+/* =========================================================
+   Direction « atelier » : sobre et précis, comme les grandes applis de notes.
+   Cadre neutre et dépoli, boutons noirs, menus en verre, page blanche qui flotte,
+   titres en Bodoni (presse de mode), texte en Literata, interface en Figtree.
+   ========================================================= */
+:root {
+  --f-display: "Bodoni Moda", "Didot", "Bodoni 72", "Playfair Display", Georgia, serif;
+  --desk: #eceef1;
+  --cover: #f7f7f8; --cover-2: #f7f7f8;
+  --cover-ink: #14171c; --cover-muted: #5a616d; --cover-line: rgba(20, 23, 28, .09);
+  --desk-ink: #14171c;
+  --top-bg: rgba(247, 247, 248, .72);
+  --chrome-field: rgba(20, 23, 28, .045);
+  --chrome-strong: #14171c;
+  --chrome-active-bg: #ffffff;
+  --chrome-ok: #1f7a45; --chrome-warn: #9a4d00;
+  --brand-1: #14171c; --brand-2: #14171c;
+  --side-shadow: transparent;
+  --primary-bg: #14171c; --primary-bg-hover: #2b2f37; --primary-fg: #ffffff;
+  --glass: rgba(255, 255, 255, .84); --glass-line: rgba(20, 23, 28, .08);
+  --hover: rgba(20, 23, 28, .05);
+  --active-shadow: 0 1px 2px rgba(16, 24, 40, .08), 0 0 0 1px rgba(16, 24, 40, .05);
+  --float-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 14px 34px -10px rgba(16, 24, 40, .16), 0 40px 90px -30px rgba(16, 24, 40, .22);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --desk: #0f1114; --cover: #16181c; --cover-2: #16181c;
+    --cover-ink: #eceef2; --cover-muted: #a4abb7; --cover-line: rgba(255, 255, 255, .08);
+    --desk-ink: #eceef2; --top-bg: rgba(22, 24, 28, .72); --chrome-field: rgba(255, 255, 255, .06);
+    --chrome-strong: #ffffff; --chrome-active-bg: rgba(255, 255, 255, .09);
+    --chrome-ok: #8ed8ac; --chrome-warn: #ffb37a; --brand-1: #ffffff; --brand-2: #ffffff;
+    --primary-bg: #f2f3f5; --primary-bg-hover: #ffffff; --primary-fg: #111316;
+    --glass: rgba(30, 32, 37, .86); --glass-line: rgba(255, 255, 255, .08); --hover: rgba(255, 255, 255, .07);
+    --active-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+    --float-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 18px 40px -12px rgba(0, 0, 0, .55), 0 50px 100px -30px rgba(0, 0, 0, .6);
+  }
+}
+:root[data-theme="dark"] {
+  --desk: #0f1114; --cover: #16181c; --cover-2: #16181c;
+  --cover-ink: #eceef2; --cover-muted: #a4abb7; --cover-line: rgba(255, 255, 255, .08);
+  --desk-ink: #eceef2; --top-bg: rgba(22, 24, 28, .72); --chrome-field: rgba(255, 255, 255, .06);
+  --chrome-strong: #ffffff; --chrome-active-bg: rgba(255, 255, 255, .09);
+  --chrome-ok: #8ed8ac; --chrome-warn: #ffb37a; --brand-1: #ffffff; --brand-2: #ffffff;
+  --primary-bg: #f2f3f5; --primary-bg-hover: #ffffff; --primary-fg: #111316;
+  --glass: rgba(30, 32, 37, .86); --glass-line: rgba(255, 255, 255, .08); --hover: rgba(255, 255, 255, .07);
+  --active-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+  --float-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 18px 40px -12px rgba(0, 0, 0, .55), 0 50px 100px -30px rgba(0, 0, 0, .6);
+}
+::selection { background: rgba(47, 91, 211, .22); }
+body { background-color: var(--desk); background-image: radial-gradient(1200px 600px at 60% -10%, rgba(255, 255, 255, .55), transparent 70%); }
+:root:not([data-theme="light"]) body { background-image: none; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) body { background-image: radial-gradient(1200px 600px at 60% -10%, rgba(255, 255, 255, .55), transparent 70%); } }
+:root[data-theme="light"] body { background-image: radial-gradient(1200px 600px at 60% -10%, rgba(255, 255, 255, .55), transparent 70%); }
+button, .pg, .icon-btn, .btn, .mini, .mi { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease; }
+
+/* Barre des carnets */
+.side { background: var(--cover); background-image: none; border-right: 1px solid var(--cover-line); box-shadow: none; }
+.side::before { display: none; }
+.brand { padding: 20px 18px 14px; gap: 12px; }
+.brand-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--primary-bg); box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+.brand-mark::after { inset: 8px 8px auto 11px; height: 3px; border-radius: 2px; background: var(--primary-fg); opacity: 1; box-shadow: 0 5px 0 var(--primary-fg), 0 10px 0 var(--primary-fg); }
+.brand b { font: 600 19px/1.1 var(--f-ui); letter-spacing: -.01em; background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--cover-ink); }
+.brand small { font-size: 11px; letter-spacing: .02em; text-transform: none; color: var(--cover-muted); margin-top: 3px; }
+.search { margin: 2px 14px 10px; }
+.search input { border: 0; background: var(--chrome-field); border-radius: 10px; padding: 9px 12px 9px 34px; }
+.search input:focus { box-shadow: 0 0 0 2px rgba(47, 91, 211, .35); background: var(--chrome-active-bg); }
+.side-scroll { padding: 2px 10px 16px; }
+.side-h { color: var(--cover-muted); letter-spacing: .02em; text-transform: none; font-size: 12px; font-weight: 600; padding: 18px 10px 6px; }
+.nb-row { padding: 5px 6px 5px 8px; border-radius: 9px; }
+.nb-row:hover { background: var(--hover); }
+.nb-dot { width: 10px; height: 10px; border-radius: 3px; box-shadow: none; }
+.nb-name { font-weight: 600; }
+.nb-pages { padding-left: 16px; }
+.pg { padding: 7px 10px; border-radius: 9px; margin: 1px 0; color: var(--cover-ink); }
+.pg:hover { background: var(--hover); }
+.pg.active { background: var(--chrome-active-bg); color: var(--chrome-strong); box-shadow: var(--active-shadow); font-weight: 600; }
+.pg.active .pg-d { color: var(--cover-muted); }
+.side .tag { background: var(--chrome-field); color: var(--cover-ink); }
+.side .tag.on, .side button.tag:hover { border-color: var(--cover-line); background: var(--chrome-active-bg); box-shadow: var(--active-shadow); }
+.side-foot { border-top: 1px solid var(--cover-line); padding: 10px; gap: 2px; }
+.side .btn.ghost { color: var(--cover-ink); }
+.side .btn.ghost:hover { background: var(--hover); color: var(--cover-ink); }
+.sync-line { background: transparent; border: 1px solid var(--cover-line); }
+.sync-line:hover { background: var(--hover); color: var(--cover-ink); }
+
+/* Barre du haut */
+.top { background: var(--top-bg); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid var(--cover-line); padding: 9px 16px; }
+.crumb { font-size: 13px; color: var(--cover-muted); }
+.crumb b { font: 600 14px/1.2 var(--f-ui); letter-spacing: 0; color: var(--cover-ink); }
+.tgroup { border-left: 0; gap: 4px; }
+.top .icon-btn { color: var(--cover-muted); border-radius: 9px; }
+.top .icon-btn:hover { background: var(--hover); color: var(--cover-ink); }
+.mode-switch { background: var(--chrome-field); border: 0; border-radius: 10px; padding: 3px; }
+.mode-switch button { color: var(--cover-muted); border-radius: 8px; font-weight: 600; padding: 5px 12px; }
+.mode-switch button.on { background: var(--chrome-active-bg); color: var(--cover-ink); box-shadow: var(--active-shadow); }
+.btn.primary, .dock .btn.primary { background: var(--primary-bg); color: var(--primary-fg); border-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .12); font-weight: 600; }
+.btn.primary:hover { background: var(--primary-bg-hover); filter: none; }
+.btn.primary:active, .mini:active, .icon-btn:active { transform: scale(.97); }
+.status { color: var(--cover-muted); font-size: 12px; }
+
+/* La page */
+.scroller { padding-block: 40px 140px; }
+.sheet { border-radius: 16px; box-shadow: var(--float-shadow); padding-top: 72px; }
+.sheet::before { display: none; }
+.sheet.turn { animation: turn2 .35s cubic-bezier(.2, .7, .2, 1); }
+@keyframes turn2 { from { opacity: .3; transform: translateY(10px) scale(.995); } }
+.ribbon { width: 18px; height: 112px; right: 64px; top: -6px; background: var(--ribbon); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%); box-shadow: none; filter: saturate(.9); }
+.eyebrow { font: 500 11.5px/1.2 var(--f-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); gap: 6px 10px; margin-bottom: 18px; }
+.eyebrow b { font: 600 11.5px/1 var(--f-ui); letter-spacing: .04em; color: var(--ink); }
+.eyebrow i { width: 18px; }
+.page-title { font: 600 clamp(38px, 6cqi, 62px)/1.04 var(--f-display); letter-spacing: -.02em; margin-bottom: 16px; color: #0f131a; }
+.meta { gap: 8px 12px; }
+.meta .tag { background: #f1f3f6; color: #2b3240; }
+.paper-pick button { border-color: #e3e6ec; color: #4f5a69; background: #fff; }
+.paper-pick button.on { border-color: #14171c; color: #14171c; font-weight: 600; }
+.tag-input { border-color: #dfe3ea; }
+.h-blk { font-family: var(--f-display); font-weight: 600; letter-spacing: -.015em; color: #0f131a; }
+.h-blk.l1 { font-size: 36px; } .h-blk.l2 { font-size: 28px; } .h-blk.l3 { font-size: 21px; font-family: var(--f-ui); letter-spacing: -.005em; }
+.rt h1, .rt h2 { font-family: var(--f-display); font-weight: 600; letter-spacing: -.015em; }
+.rt h3 { font-family: var(--f-ui); font-weight: 600; }
+.rt { color: #1b2230; }
+.quote { border-left: 2px solid #14171c; }
+.quote .rt { font: italic 500 24px/1.45 var(--f-display); }
+.callout { border-radius: 14px; border-width: 0; padding: 14px 16px; }
+.callout .ico { border-radius: 9px; }
+.tbl-wrap { border-color: #e7e9ee; border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.tbl td, .tbl th { border-color: #eceef2; padding: 9px 12px; }
+.tbl.head tr:first-child td { background: #f7f8fa; color: #14171c; font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; }
+.card, .pdf-link { border-color: #e7e9ee; border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.pdf-link:hover { border-color: #cfd4dd; box-shadow: 0 6px 18px -8px rgba(16, 24, 40, .18); }
+.pdf-txt b { color: #14171c; }
+.media img, .media video { border-radius: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 10px 26px -12px rgba(16, 24, 40, .28); }
+.add-row .mini, .mini { border-color: #e3e6ec; color: #3c4554; background: #fff; }
+.add-row .mini:hover, .mini:hover { border-color: #c9ced8; color: #14171c; background: #fafbfc; }
+.page-foot { color: #6a7382; }
+.colophon { font: 500 12px/1 var(--f-ui); letter-spacing: .12em; color: #6a7382; }
+.blk-note { color: #2f5bd3; border-left-color: #d8dde6; }
+.checklist input, .dock input[type="range"] { accent-color: #14171c; }
+.check-progress i b { background: #14171c; }
+
+/* Menus, fenêtres, palettes : verre dépoli */
+.menu { background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border: 1px solid var(--glass-line); border-radius: 14px; box-shadow: 0 12px 40px rgba(16, 24, 40, .18); padding: 6px; animation: pop .14s ease-out; transform-origin: top left; }
+@keyframes pop { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+.menu .mh { color: var(--muted); letter-spacing: .02em; text-transform: none; font-size: 12px; }
+.menu button.mi { border-radius: 9px; padding: 8px 10px; }
+.menu button.mi:hover, .menu button.mi.sel { background: var(--hover); }
+.menu .mi-ico { border: 0; background: var(--hover); border-radius: 9px; }
+.modal-bg { background: rgba(12, 14, 18, .32); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: fadein .15s ease-out; }
+@keyframes fadein { from { opacity: 0; } }
+.modal { border-radius: 20px; box-shadow: 0 30px 80px rgba(16, 24, 40, .3); border: 1px solid var(--glass-line); animation: pop .16s ease-out; padding: 22px; }
+.modal h2 { font: 600 20px/1.25 var(--f-ui); letter-spacing: -.01em; }
+.dock { background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border: 1px solid var(--glass-line); border-radius: 18px; color: var(--cover-ink); box-shadow: 0 16px 44px rgba(16, 24, 40, .22); --ink: var(--cover-ink); --muted: var(--cover-muted); --paper: var(--cover); --line: var(--glass-line); --accent-soft: var(--hover); }
+.dock .icon-btn { color: var(--cover-muted); border-radius: 10px; }
+.dock .icon-btn:hover { background: var(--hover); color: var(--cover-ink); }
+.dock .icon-btn.on { background: var(--primary-bg); color: var(--primary-fg); }
+.dock .swatch.on { box-shadow: 0 0 0 2px var(--cover-ink); }
+.fmt { background: rgba(20, 23, 28, .92); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); color: #f4f5f7; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; box-shadow: 0 12px 34px rgba(0, 0, 0, .28); }
+.fmt button:hover, .fmt button.on { background: rgba(255, 255, 255, .12); }
+.toast { background: rgba(20, 23, 28, .94); color: #f4f5f7; border: 0; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, .25); }
+.btn { border-radius: 10px; }
+.sticky { border-radius: 4px 4px 18px 4px; }
+@media (max-width: 600px) {
+  .sheet { border-radius: 14px; padding-top: 54px; }
+  .ribbon { right: 20px; height: 70px; width: 16px; }
+  .page-title { font-size: 36px; }
+  .scroller { padding-block: 16px 120px; }
+}
+@media (prefers-reduced-motion: reduce) { .menu, .modal, .modal-bg { animation: none; } }
 </style>
 </head>
 <body>
@@ -3168,7 +3337,7 @@ async function openSyncPanel() {
 // Adresse publique de l'application installable, renseignée une fois l'hébergement en place.
 const APP_URL = 'https://27gaelle82.github.io/carnet-seyes/';
 // Numéro affiché en bas de la barre des carnets, pour savoir quelle version tourne.
-const APP_VERSION = '10 · 23 oct.';
+const APP_VERSION = '11 · 23 oct.';
 // Vide les copies gardées de l'application (jamais les notes, qui sont dans IndexedDB) puis recharge.
 async function forceUpdate() {
   toast('Mise à jour de l\'application…');
