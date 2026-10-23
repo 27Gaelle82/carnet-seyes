@@ -9,8 +9,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
-  "background_color": "#16211f",
-  "theme_color": "#1b2725",
+  "background_color": "#f6f3ec",
+  "theme_color": "#f6f3ec",
   "categories": ["productivity", "education"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

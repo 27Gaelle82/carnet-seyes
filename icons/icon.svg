@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3d39"/><stop offset="1" stop-color="#16211f"/></linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0d9a2"/><stop offset=".55" stop-color="#c8a25a"/><stop offset="1" stop-color="#8d6b2c"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f5ef"/><stop offset="1" stop-color="#e8e4da"/></linearGradient>
+    <linearGradient id="cv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a6cc4"/><stop offset=".55" stop-color="#2a4c9c"/><stop offset="1" stop-color="#1f3a7a"/></linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <rect x="40" y="40" width="432" height="432" rx="56" fill="none" stroke="#c8a25a" stroke-opacity=".45" stroke-width="5" stroke-dasharray="14 10"/>
   <g transform="translate(156,112)">
-    <rect x="0" y="0" width="200" height="270" rx="10" ry="10" fill="url(#gold)"/>
+    <rect x="10" y="10" width="200" height="270" rx="10" fill="#000" fill-opacity=".12"/>
+    <rect x="0" y="0" width="200" height="270" rx="10" fill="url(#cv)"/>
     <rect x="0" y="0" width="30" height="270" rx="8" fill="#000" fill-opacity=".22"/>
-    <rect x="62" y="52" width="110" height="46" rx="5" fill="#1b2725" fill-opacity=".6"/>
-    <path d="M150 -6 h26 v120 l-13 -14 l-13 14 z" fill="#8c2f39"/>
+    <rect x="62" y="52" width="110" height="46" rx="5" fill="#ffffff" fill-opacity=".92"/>
+    <path d="M150 -6 h26 v120 l-13 -14 l-13 14 z" fill="#c9353b"/>
   </g>
 </svg>
